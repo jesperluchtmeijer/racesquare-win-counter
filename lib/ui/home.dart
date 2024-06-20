@@ -15,21 +15,14 @@ class _HomeState extends State<Home> {
   }
 
   Future<void> _fetchDrivers() async {
-    try {
-      final response = await supabase.from('drivers').select();
-      setState(() {
-        drivers = response as List<dynamic>;
-        if (drivers.isNotEmpty) {
-          selectedDriver = drivers[0];
-        }
-        isLoading = false;
-      });
-    } catch (e) {
-      print(e);
-      setState(() {
-        isLoading = false;
-      });
-    }
+    final response = await supabase.from('drivers').select();
+    setState(() {
+      drivers = response as List<dynamic>;
+      if (drivers.isNotEmpty) {
+        selectedDriver = drivers[0];
+      }
+      isLoading = false;
+    });
   }
 
   Future<void> _updateDriverPlace(String placeType) async {
@@ -37,18 +30,13 @@ class _HomeState extends State<Home> {
       print('No driver selected');
       return;
     }
-    try {
-      final driverId = selectedDriver['id'];
-      final currentCount = selectedDriver[placeType] ?? 0;
-      await supabase
-          .from('drivers')
-          .update({placeType: currentCount + 1}).eq('id', driverId);
-      print("$placeType updated");
-
-      _fetchDrivers(); // Refresh the list of drivers
-    } catch (e) {
-      print(e);
-    }
+    final driverId = selectedDriver['id'];
+    final currentCount = selectedDriver[placeType] ?? 0;
+    await supabase
+        .from('drivers')
+        .update({placeType: currentCount + 1}).eq('id', driverId);
+    print("$placeType updated");
+    _fetchDrivers(); // Refresh the list of drivers
   }
 
   @override
@@ -72,6 +60,7 @@ class _HomeState extends State<Home> {
                 Expanded(child: driverList()),
                 _driverSelectionDropdown(),
                 _placeButtons(),
+                AddDriverButton(onDriverAdded: _fetchDrivers),
               ],
             ),
     );
@@ -147,4 +136,68 @@ class Home extends StatefulWidget {
 
   @override
   _HomeState createState() => _HomeState();
+}
+
+class AddDriverButton extends StatefulWidget {
+  final Function onDriverAdded;
+
+  AddDriverButton({required this.onDriverAdded});
+
+  @override
+  _AddDriverButtonState createState() => _AddDriverButtonState();
+}
+
+class _AddDriverButtonState extends State<AddDriverButton> {
+  final TextEditingController _controller = TextEditingController();
+
+  Future<void> _addDriverToDatabase(String driverName) async {
+    await supabase.from('drivers').insert({
+      'name': driverName,
+      'first_place': 0,
+      'second_place': 0,
+      'third_place': 0,
+    });
+    widget.onDriverAdded();
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () {
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: Text('Add Driver'),
+              content: TextField(
+                controller: _controller,
+                decoration: InputDecoration(
+                  hintText: 'Driver Name',
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final driverName = _controller.text;
+                    if (driverName.isNotEmpty) {
+                      await _addDriverToDatabase(driverName);
+                    }
+                  },
+                  child: Text('Add'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+      child: Text('Add Driver'),
+    );
+  }
 }
